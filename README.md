@@ -1,7 +1,7 @@
 # McMaster_Chem-E_Car_23-24
 The codebase for the McMaster Chem-E Car Team from 2023-2024.
 
-This project uses an Adafruit Feather M0 Adalogger microcontroller programmed in the Arduino programming language. The car runs off a chemical reaction and is stopped by a chemical reaction as well. However, the code and the microcontroller are used to start the stopping reaction and stir the mixture while monitoring it to identify when to stop based on a temperature threshold. It also uses an IMU to keep the car going straight a servo for starting the stopping reaction and two motor drivers to run the drive motors and a stir-bar motor. The car's main drive system will be powered from a custom-built Zn-Air battery while the remaining Auxiliary systems are powered from a smaller Li-Po battery.
+This project uses an Adafruit Feather M0 Adalogger microcontroller programmed in the Arduino programming language. The car runs off a chemical reaction and is stopped by a chemical reaction as well. However, the code and the microcontroller are used to start the stopping reaction and stir the mixture while monitoring it to identify when to stop based on a temperature threshold. It also uses an IMU to keep the car going straight, a servo for starting the stopping reaction, two motor drivers to run the drive motors, and a motor for stirring the stopping reaction. The car's main drive system will be powered from a custom-built Zn-Air battery while the remaining auxiliary systems are powered from a smaller Li-Po battery.
 
 The major components used are as follows:<br />
 2 - N20 100 RPM Motors (for drive system)<br />
