@@ -8,7 +8,7 @@
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#define ONE_WIRE_BUS 23 // pin for the DS18B20 data line
+#define ONE_WIRE_BUS A1 // pin for the DS18B20 data line
 OneWire oneWire(ONE_WIRE_BUS); // create a OneWire instance to communicate with the senso
 DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Temperature sensor
 
