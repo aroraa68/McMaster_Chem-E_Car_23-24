@@ -6,8 +6,8 @@
 // Servo Motor - Needs to be initialized, turn 180 deg clockwise once at start to dump reactants, wait 1 sec to finish dumping, turn back 180 deg counter-clockwise to return to upright position, set speed to 100% for now, tune later.
 
 // Define the PWM pins for the stir bar motor
-const int motorPin1 = 5;
-const int motorPin2 = 6;
+const int stirPin1 = 5;
+const int stirPin2 = 6;
 
 void setup() {
   // Initialize the motor pins as outputs
