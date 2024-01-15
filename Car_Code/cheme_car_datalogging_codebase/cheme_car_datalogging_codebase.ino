@@ -7,17 +7,17 @@
 // MicroSD Card - Store all variable data to MicroSD Card on microcontroller, allow for each run to be saved under a different filename (potentially in CSV format) so we can keep track of everything.
 
 // Define the PWM pins for the stir bar motor
-const int motorPin1 = 5;
-const int motorPin2 = 6;
+const int stirPin1 = 5;
+const int stirPin2 = 6;
 
 void setup() {
   // Initialize the motor pins as outputs
-  pinMode(motorPin1, OUTPUT);
-  pinMode(motorPin2, OUTPUT);
+  pinMode(stirPin1, OUTPUT);
+  pinMode(stirPin2, OUTPUT);
 
   // Set the initial speed to 80%
-  analogWrite(motorPin1, 204); // 80% of 255
-  analogWrite(motorPin2, 204);
+  analogWrite(stirPin1, 204); // 80% of 255
+  analogWrite(stirPin2, 204);
 }
 
 void loop() {
