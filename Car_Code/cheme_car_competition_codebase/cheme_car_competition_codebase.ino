@@ -35,22 +35,22 @@ void loop() {
 
 void drive_forward(int speed){
   //left wheel
-  analogWrite(left_pwm1, speed);
-  digitalWrite(left_pwm2, LOW);
+  digitalWrite(left_pwm1, HIGH);
+  analogWrite(left_pwm2, speed);
 
   //right wheel
-  analogWrite(right_pwm1, speed);
-  digitalWrite(right_pwm2, LOW);
+  digitalWrite(right_pwm1, HIGH);
+  analogWrite(right_pwm2, speed);
 
 }
 
 void stop_driving(){
   //left wheel
-  analogWrite(left_pwm1, 0);
-  digitalWrite(left_pwm2, LOW);
+  digitalWrite(left_pwm1, HIGH);
+  analogWrite(left_pwm2, 0);
 
   //right wheel
-  analogWrite(right_pwm1, 0);
-  digitalWrite(right_pwm2, LOW);
+  digitalWrite(right_pwm1, HIGH);
+  analogWrite(right_pwm2, 0);
 }
 
