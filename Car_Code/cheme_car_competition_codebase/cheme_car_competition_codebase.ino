@@ -16,7 +16,7 @@ void setup() {
 
   // Set the initial speed to 80%
   analogWrite(stirPin1, 204); // 80% of 255
-  analogWrite(stirPin2, 204);
+  digitalWrite(stirPin2, LOW); //for fast decay
 }
 
 void loop() {
