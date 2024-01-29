@@ -22,7 +22,7 @@ float temperatureC; // Raw temperature in Celcius
 float x_k; // Filtered temperature
 float zAngle; // z-axis angle
 float zAngleFiltered; // Filtered z-axis angle
-int runCount = 1; 
+int runCount = 0; 
 
 void setup() {
   // Begin serial communication
@@ -35,6 +35,26 @@ void setup() {
     Serial.println("SD card initialization failed.");
     while(1); // Halts and waits if failure
   }
+
+  File root = SD.open("/"); // Open SD root directory
+  int checkRun = 0;
+
+  while (true){
+    File nextFile = root.openNextFile();
+    
+    if (!nextFile){ // Increment with each existing file
+      checkRun++;
+    }
+
+    else {
+      nextFile.close();
+    }
+  }
+  
+  root.close();
+
+  runCount = checkRun + 1;
+
   Serial.println("Success! SD card initialized.");
 }
 
