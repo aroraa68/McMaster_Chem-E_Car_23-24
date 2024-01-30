@@ -3,6 +3,7 @@
 // Drive Motors - Need need to add PID with IMU.
 // Servo Motor - Needs to be initialized, turn 180 deg clockwise once at start to dump reactants, wait 1 sec to finish dumping, turn back 180 deg counter-clockwise to return to upright position, set speed to 100% for now, tune later.
 
+// Included libraries
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
@@ -21,12 +22,16 @@
 OneWire oneWire(ONE_WIRE_BUS);       // create a OneWire instance to communicate with the senso
 DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Temperature sensor
 
+// Temperature threshold
+const float tempDiff = 3;
+
 // Define accelerometer variables
 float zAngle;         // z-axis angle
 float zAngleFiltered; // Filtered z-axis angle
 
-// variable to store temperature
+// variables to store temperature
 float temperatureC;
+float initTemp;
 
 // KALMAN FILTER variables
 float k;         // kalman gain
@@ -39,15 +44,39 @@ float p_k_minus; // Predicted error covariance for the next state
 float q; // Process noise covariance
 float r; // Measurement noise covariance
 
-void setup()
+void drive_forward(int speed) // Drive function
 {
-  sensors.begin(); // initialize the DS18B20 sensor
+  // left wheel
+  digitalWrite(left_pwm1, HIGH);
+  analogWrite(left_pwm2, speed);
 
+  // right wheel
+  digitalWrite(right_pwm1, HIGH);
+  analogWrite(right_pwm2, speed);
+}
+
+void stop_driving() // Stop function
+{
+  // left wheel
+  digitalWrite(left_pwm1, HIGH);
+  analogWrite(left_pwm2, 0);
+
+  // right wheel
+  digitalWrite(right_pwm1, HIGH);
+  analogWrite(right_pwm2, 0);
+}
+
+void setup() // Setup (executes once)
+{
   // Initialize Kalman filter parameters
   x_k = 0.0; // Initial state estimate
   p_k = 1.0; // Initial error covariance
   q = 0.01;  // Process noise covariance
   r = 0.1;   // Measurement noise covariance
+
+  sensors.begin();                       // initialize the DS18B20 sensor
+  sensors.requestTemperatures();         // request temperature from all devices on the bus
+  initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
 
   // Initialize the motor pins as outputs
   pinMode(stirPin1, OUTPUT);
@@ -70,7 +99,7 @@ void setup()
   digitalWrite(stirPin2, LOW); // for fast decay
 }
 
-void loop()
+void loop() // Loop (main loop)
 {
   sensors.requestTemperatures();             // request temperature from all devices on the bus
   temperatureC = sensors.getTempCByIndex(0); // get temperature in Celsius
@@ -91,27 +120,9 @@ void loop()
   p_k = (1 - k) * p_k_minus;                        // Updated error covariance
 
   drive_forward(204); // 80% speed is 204
-  // stop_driving();  //uncomment to stop
-}
 
-void drive_forward(int speed)
-{
-  // left wheel
-  digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, speed);
-
-  // right wheel
-  digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, speed);
-}
-
-void stop_driving()
-{
-  // left wheel
-  digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, 0);
-
-  // right wheel
-  digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, 0);
+  if ((x_k - initTemp) > tempDiff)
+  {
+    stop_driving();
+  }
 }

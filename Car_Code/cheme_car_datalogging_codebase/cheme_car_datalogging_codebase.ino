@@ -2,6 +2,7 @@
 // IMU - Needs to be initialized, periodically poll sensor, store Z-axis angle in variable, take initial value as 0 deg print out to serial monitor, look into kalman filters for reducing sensor noise.
 // Servo Motor - Needs to be initialized, turn 180 deg clockwise once at start to dump reactants, wait 1 sec to finish dumping, turn back 180 deg counter-clockwise to return to upright position, set speed to 100% for now, tune later.
 
+// Included libraries
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <SD.h>
@@ -14,8 +15,8 @@
 #define right_pwm2 12
 
 // Define the PWM pins for the stir bar motor
-#define sitr_pin1 5
-#define sitr_pin2 6
+#define stirPin1 5
+#define stirPin2 6
 
 #define ONE_WIRE_BUS A1 // pin for the DS18B20 data line
 
@@ -24,6 +25,9 @@
 
 OneWire oneWire(ONE_WIRE_BUS);       // create a OneWire instance to communicate with the senso
 DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Temperature sensor
+
+// Temperature threshold
+const float tempDiff = 3;
 
 // Initialize run count for SD card file
 int runCount;
@@ -40,8 +44,9 @@ bool isFileNew = false; // Checks for new file
 float zAngle;         // z-axis angle
 float zAngleFiltered; // Filtered z-axis angle
 
-// variable to store temperature
+// variables to store temperature
 float temperatureC;
+float initTemp;
 
 // KALMAN FILTER variables
 float k;         // kalman gain
@@ -58,36 +63,37 @@ float r; // Measurement noise covariance
 unsigned long currTime;
 unsigned long prevTime;
 
-void setup()
+void drive_forward(int speed) // Drive function
+{
+  // left wheel
+  digitalWrite(left_pwm1, HIGH);
+  analogWrite(left_pwm2, speed);
+
+  // right wheel
+  digitalWrite(right_pwm1, HIGH);
+  analogWrite(right_pwm2, speed);
+}
+
+void stop_driving() // Stop function
+{
+  // left wheel
+  digitalWrite(left_pwm1, HIGH);
+  analogWrite(left_pwm2, 0);
+
+  // right wheel
+  digitalWrite(right_pwm1, HIGH);
+  analogWrite(right_pwm2, 0);
+}
+
+void setup() // Setup (executes once)
 {
   Serial.begin(9600); // start serial communication (adjust baud rate as needed)
-  sensors.begin();    // initialize the DS18B20 sensor
 
   // Initialize Kalman filter parameters
   x_k = 0.0; // Initial state estimate
   p_k = 1.0; // Initial error covariance
   q = 0.01;  // Process noise covariance
   r = 0.1;   // Measurement noise covariance
-
-  // Initialize the stir motor pins as outputs
-  pinMode(sitr_pin1, OUTPUT);
-  pinMode(sitr_pin2, OUTPUT);
-
-  // Setting drive motors to output mode
-  pinMode(left_pwm1, OUTPUT);
-  pinMode(left_pwm2, OUTPUT);
-  pinMode(right_pwm1, OUTPUT);
-  pinMode(right_pwm2, OUTPUT);
-
-  // Set the stir initial speed to 80%
-  analogWrite(sitr_pin1, 204);  // 80% of 255
-  digitalWrite(sitr_pin2, LOW); // for fast decay
-
-  // start drive motors completely stopped
-  analogWrite(left_pwm1, 0);
-  digitalWrite(left_pwm2, LOW);
-  analogWrite(right_pwm1, 0);
-  digitalWrite(right_pwm2, LOW);
 
   // Initialize SD Card
   Serial.println("SD card is initializing...");
@@ -122,9 +128,33 @@ void setup()
   runCount = checkRun + 1;
 
   Serial.println("Success! SD card initialized.");
+
+  sensors.begin();                       // initialize the DS18B20 sensor
+  sensors.requestTemperatures();         // request temperature from all devices on the bus
+  initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
+
+  // Initialize the stir motor pins as outputs
+  pinMode(stirPin1, OUTPUT);
+  pinMode(stirPin2, OUTPUT);
+
+  // Setting drive motors to output mode
+  pinMode(left_pwm1, OUTPUT);
+  pinMode(left_pwm2, OUTPUT);
+  pinMode(right_pwm1, OUTPUT);
+  pinMode(right_pwm2, OUTPUT);
+
+  // Set the stir initial speed to 80%
+  analogWrite(stirPin1, 204);  // 80% of 255
+  digitalWrite(stirPin2, LOW); // for fast decay
+
+  // start drive motors completely stopped
+  analogWrite(left_pwm1, 0);
+  digitalWrite(left_pwm2, LOW);
+  analogWrite(right_pwm1, 0);
+  digitalWrite(right_pwm2, LOW);
 }
 
-void loop()
+void loop() // Loop (main loop)
 {
   sensors.requestTemperatures();             // request temperature from all devices on the bus
   temperatureC = sensors.getTempCByIndex(0); // get temperature in Celsius
@@ -191,27 +221,9 @@ void loop()
   Serial.println(temperatureC);
 
   drive_forward(204); // 80% speed is 204
-  // stop_driving();  //uncomment to stop
-}
 
-void drive_forward(int speed)
-{
-  // left wheel
-  digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, speed);
-
-  // right wheel
-  digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, speed);
-}
-
-void stop_driving()
-{
-  // left wheel
-  digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, 0);
-
-  // right wheel
-  digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, 0);
+  if ((x_k - initTemp) > tempDiff)
+  {
+    stop_driving();
+  }
 }
