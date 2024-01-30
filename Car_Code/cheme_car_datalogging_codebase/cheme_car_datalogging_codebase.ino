@@ -12,6 +12,10 @@
 OneWire oneWire(ONE_WIRE_BUS); // create a OneWire instance to communicate with the senso
 DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Temperature sensor
 
+// Define the PWM pins for the stir bar motor
+const int stirPin1 = 5;
+const int stirPin2 = 6;
+
 // variable to store temperature
 float temperatureC;
 // KALMAN FILTER variables
@@ -30,6 +34,14 @@ void setup() {
   p_k = 1.0; // Initial error covariance
   q = 0.01;  // Process noise covariance 
   r = 0.1;   // Measurement noise covariance 
+  
+  // Initialize the motor pins as outputs
+  pinMode(stirPin1, OUTPUT);
+  pinMode(stirPin2, OUTPUT);
+
+  // Set the initial speed to 80%
+  analogWrite(stirPin1, 204); // 80% of 255
+  digitalWrite(stirPin2, LOW); //for fast decay
 }
 
 void loop() {
