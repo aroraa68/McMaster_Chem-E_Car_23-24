@@ -74,29 +74,31 @@ void setup() // Setup (executes once)
   q = 0.01;  // Process noise covariance
   r = 0.1;   // Measurement noise covariance
 
+  // Initialize the stir motor pins as outputs
+  pinMode(stirPin1, OUTPUT);
+  pinMode(stirPin2, OUTPUT);
+
+  // Set the stir initial speed to 80%
+  analogWrite(stirPin1, 204);  // 80% of 255
+  digitalWrite(stirPin2, LOW); // for fast decay
+
   sensors.begin();                       // initialize the DS18B20 sensor
   sensors.requestTemperatures();         // request temperature from all devices on the bus
   initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
 
-  // Initialize the motor pins as outputs
-  pinMode(stirPin1, OUTPUT);
-  pinMode(stirPin2, OUTPUT);
+  // Servo acctuation goes here
 
-  // Setting to output mode
+  // Setting to drive motors output mode
   pinMode(left_pwm1, OUTPUT);
   pinMode(left_pwm2, OUTPUT);
   pinMode(right_pwm1, OUTPUT);
   pinMode(right_pwm2, OUTPUT);
 
-  // start motors completely stopped
+  // Start drive motors completely stopped
   analogWrite(left_pwm1, 0);
   digitalWrite(left_pwm2, LOW);
   analogWrite(right_pwm1, 0);
   digitalWrite(right_pwm2, LOW);
-
-  // Set the initial speed to 80%
-  analogWrite(stirPin1, 204);  // 80% of 255
-  digitalWrite(stirPin2, LOW); // for fast decay
 }
 
 void loop() // Loop (main loop)

@@ -129,13 +129,19 @@ void setup() // Setup (executes once)
 
   Serial.println("Success! SD card initialized.");
 
+  // Initialize the stir motor pins as outputs
+  pinMode(stirPin1, OUTPUT);
+  pinMode(stirPin2, OUTPUT);
+
+  // Set the stir initial speed to 80%
+  analogWrite(stirPin1, 204);  // 80% of 255
+  digitalWrite(stirPin2, LOW); // for fast decay
+
   sensors.begin();                       // initialize the DS18B20 sensor
   sensors.requestTemperatures();         // request temperature from all devices on the bus
   initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
 
-  // Initialize the stir motor pins as outputs
-  pinMode(stirPin1, OUTPUT);
-  pinMode(stirPin2, OUTPUT);
+  // Servo acctuation goes here
 
   // Setting drive motors to output mode
   pinMode(left_pwm1, OUTPUT);
@@ -143,11 +149,7 @@ void setup() // Setup (executes once)
   pinMode(right_pwm1, OUTPUT);
   pinMode(right_pwm2, OUTPUT);
 
-  // Set the stir initial speed to 80%
-  analogWrite(stirPin1, 204);  // 80% of 255
-  digitalWrite(stirPin2, LOW); // for fast decay
-
-  // start drive motors completely stopped
+  // Start drive motors completely stopped
   analogWrite(left_pwm1, 0);
   digitalWrite(left_pwm2, LOW);
   analogWrite(right_pwm1, 0);
