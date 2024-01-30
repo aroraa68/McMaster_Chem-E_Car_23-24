@@ -162,6 +162,10 @@ void loop()
   }
 
   // Print the filtered temperature
+  Serial.print("Current Time: ");
+  Serial.println(currTime);
+
+  // Print the filtered temperature
   Serial.print("Filtered Temperature: ");
   Serial.println(x_k);
 
