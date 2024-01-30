@@ -1,5 +1,4 @@
 // TODO:
-// Serial Interface - Needs to be initialized, look into plotting data with the data streamer add-on in Excel.
 // IMU - Needs to be initialized, periodically poll sensor, store Z-axis angle in variable, take initial value as 0 deg print out to serial monitor, look into kalman filters for reducing sensor noise.
 // Servo Motor - Needs to be initialized, turn 180 deg clockwise once at start to dump reactants, wait 1 sec to finish dumping, turn back 180 deg counter-clockwise to return to upright position, set speed to 100% for now, tune later.
 
@@ -8,21 +7,27 @@
 #include <SD.h>
 #include <SPI.h>
 
+// Define drive motor pins
+#define left_pwm1 9
+#define left_pwm2 10
+#define right_pwm1 11
+#define right_pwm2 12
+
+// Define the PWM pins for the stir bar motor
+#define sitr_pin1 5
+#define sitr_pin2 6
+
 #define ONE_WIRE_BUS A1 // pin for the DS18B20 data line
+
+// Define CS pin for SD card
+#define chip_select 4
 
 OneWire oneWire(ONE_WIRE_BUS);       // create a OneWire instance to communicate with the senso
 DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Temperature sensor
 
-// Define pin numbers
-const int chipSelect = 4;
-
 // Initialize run count for SD card file
 int runCount;
 int checkRun;
-
-// Define the PWM pins for the stir bar motor
-const int stirPin1 = 5;
-const int stirPin2 = 6;
 
 // Define files
 File root;
@@ -64,18 +69,30 @@ void setup()
   q = 0.01;  // Process noise covariance
   r = 0.1;   // Measurement noise covariance
 
-  // Initialize the motor pins as outputs
-  pinMode(stirPin1, OUTPUT);
-  pinMode(stirPin2, OUTPUT);
+  // Initialize the stir motor pins as outputs
+  pinMode(sitr_pin1, OUTPUT);
+  pinMode(sitr_pin2, OUTPUT);
 
-  // Set the initial speed to 80%
-  analogWrite(stirPin1, 204);  // 80% of 255
-  digitalWrite(stirPin2, LOW); // for fast decay
+  // Setting drive motors to output mode
+  pinMode(left_pwm1, OUTPUT);
+  pinMode(left_pwm2, OUTPUT);
+  pinMode(right_pwm1, OUTPUT);
+  pinMode(right_pwm2, OUTPUT);
+
+  // Set the stir initial speed to 80%
+  analogWrite(sitr_pin1, 204);  // 80% of 255
+  digitalWrite(sitr_pin2, LOW); // for fast decay
+
+  // start drive motors completely stopped
+  analogWrite(left_pwm1, 0);
+  digitalWrite(left_pwm2, LOW);
+  analogWrite(right_pwm1, 0);
+  digitalWrite(right_pwm2, LOW);
 
   // Initialize SD Card
   Serial.println("SD card is initializing...");
 
-  if (!SD.begin(chipSelect))
+  if (!SD.begin(chip_select))
   {
     Serial.println("SD card initialization failed.");
     while (1)
@@ -172,4 +189,29 @@ void loop()
   // Print raw temperature to Serial monitor
   Serial.print("Raw Temperature: ");
   Serial.println(temperatureC);
+
+  drive_forward(204); // 80% speed is 204
+  // stop_driving();  //uncomment to stop
+}
+
+void drive_forward(int speed)
+{
+  // left wheel
+  digitalWrite(left_pwm1, HIGH);
+  analogWrite(left_pwm2, speed);
+
+  // right wheel
+  digitalWrite(right_pwm1, HIGH);
+  analogWrite(right_pwm2, speed);
+}
+
+void stop_driving()
+{
+  // left wheel
+  digitalWrite(left_pwm1, HIGH);
+  analogWrite(left_pwm2, 0);
+
+  // right wheel
+  digitalWrite(right_pwm1, HIGH);
+  analogWrite(right_pwm2, 0);
 }
