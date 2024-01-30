@@ -29,6 +29,9 @@ DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Tempera
 // Temperature threshold
 const float tempDiff = 3;
 
+// Time limit in milliseconds
+const unsigned long tLim = 12000;
+
 // Initialize run count for SD card file
 int runCount;
 int checkRun;
@@ -61,7 +64,7 @@ float r; // Measurement noise covariance
 
 // Keeping track of time
 unsigned long currTime;
-unsigned long prevTime;
+unsigned long startTime;
 
 void drive_forward(int speed) // Drive function
 {
@@ -87,6 +90,9 @@ void stop_driving() // Stop function
 
 void setup() // Setup (executes once)
 {
+  // Get time at start
+  startTime = millis();
+
   Serial.begin(9600); // start serial communication (adjust baud rate as needed)
 
   // Initialize Kalman filter parameters
@@ -224,7 +230,7 @@ void loop() // Loop (main loop)
 
   drive_forward(204); // 80% speed is 204
 
-  if ((x_k - initTemp) > tempDiff)
+  if (((x_k - initTemp) > tempDiff) ||((currTime - startTime) > tLim))
   {
     stop_driving();
   }
