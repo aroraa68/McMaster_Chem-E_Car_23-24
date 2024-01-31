@@ -131,7 +131,11 @@ void loop() // Loop (main loop)
   x_k = x_k_minus + k * (temperatureC - x_k_minus); // Updated state estimate
   p_k = (1 - k) * p_k_minus;                        // Updated error covariance
 
+  // Recieve IMU data here
+
   drive_forward(204); // 80% speed is 204
+
+  // Add PID here
 
   if (((x_k - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
   {

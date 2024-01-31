@@ -1,5 +1,6 @@
 // TODO:
 // IMU - Needs to be initialized, periodically poll sensor, store Z-axis angle in variable, take initial value as 0 deg print out to serial monitor, look into kalman filters for reducing sensor noise.
+// Drive Motors - Need need to add PID with IMU.
 // Servo Motor - Needs to be initialized, turn 180 deg clockwise once at start to dump reactants, wait 1 sec to finish dumping, turn back 180 deg counter-clockwise to return to upright position, set speed to 100% for now, tune later.
 
 // Included libraries
@@ -26,6 +27,14 @@
 OneWire oneWire(ONE_WIRE_BUS);       // create a OneWire instance to communicate with the senso
 DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Temperature sensor
 
+// Define files
+File root;
+File nextFile;
+File dataFile;
+String fileName;
+
+bool isFileNew = false; // Checks for new file
+
 // Temperature threshold
 const float tempDiff = 3;
 
@@ -36,13 +45,6 @@ const unsigned long tLim = 12000;
 int runCount;
 int checkRun;
 
-// Define files
-File root;
-File nextFile;
-File dataFile;
-String fileName;
-bool isFileNew = false; // Checks for new file
-
 // Define accelerometer variables
 float zAngle;         // z-axis angle
 float zAngleFiltered; // Filtered z-axis angle
@@ -50,6 +52,8 @@ float zAngleFiltered; // Filtered z-axis angle
 // variables to store temperature
 float temperatureC;
 float initTemp;
+
+float data[4]; // Data array
 
 // KALMAN FILTER variables
 float k;         // kalman gain
@@ -88,12 +92,41 @@ void stop_driving() // Stop function
   analogWrite(right_pwm2, 0);
 }
 
+void printer(bool serialTrue, unsigned long millisTime, float outputs[4]) // Output function
+{
+  if (serialTrue)
+  {
+    Serial.print(millisTime);
+
+    for (int i = 0; i < sizeof(outputs); i++)
+    {
+      Serial.print(",");
+      Serial.print(outputs[i]);
+    }
+
+    Serial.println("");
+  }
+  else
+  {
+    dataFile.print(millisTime);
+
+    for (int i = 0; i < sizeof(outputs); i++)
+    {
+      dataFile.print(",");
+      dataFile.print(outputs[i]);
+    }
+
+    dataFile.println("");
+  }
+}
+
 void setup() // Setup (executes once)
 {
   // Get time at start
   startTime = millis();
 
   Serial.begin(9600); // start serial communication (adjust baud rate as needed)
+  Serial.println("Initalised at 9600 bps");
 
   // Initialize Kalman filter parameters
   x_k = 0.0; // Initial state estimate
@@ -134,7 +167,8 @@ void setup() // Setup (executes once)
   runCount = checkRun + 1;
 
   Serial.println("Success! SD card initialized.");
-
+  Serial.println("Time,Temperature,Filtered Temperature,z-angle,Filtered z-angle"); // Data header
+  
   // Initialize the stir motor pins as outputs
   pinMode(stirPin1, OUTPUT);
   pinMode(stirPin2, OUTPUT);
@@ -182,7 +216,9 @@ void loop() // Loop (main loop)
   x_k = x_k_minus + k * (temperatureC - x_k_minus); // Updated state estimate
   p_k = (1 - k) * p_k_minus;                        // Updated error covariance
 
-  fileName = "Run_" + String(runCount++) + ".csv";
+  // Recieve IMU data here
+
+  fileName = "Run_" + String(runCount) + ".csv";
   dataFile = SD.open(fileName, FILE_WRITE);
 
   if (dataFile)
@@ -190,23 +226,21 @@ void loop() // Loop (main loop)
     // Writes header if it's a new file
     if (!isFileNew)
     {
-      dataFile.println("Time, Temperature, Filtered Temperature, z-angle, Filtered z-angle");
+      dataFile.println("Time,Temperature,Filtered Temperature,z-Angle,Filtered z-Angle");
       isFileNew = true;
     }
 
     // Obtain current time in seconds
     currTime = millis();
 
+    // Update data array
+    data[0] = temperatureC;
+    data[1] = x_k;
+    data[2] = zAngle;
+    data[3] = zAngleFiltered;
+
     // Write variable data to the file in CSV format
-    dataFile.print(currTime);
-    dataFile.print(", ");
-    dataFile.print(temperatureC);
-    dataFile.print(", ");
-    dataFile.print(x_k);
-    dataFile.print(", ");
-    dataFile.print(zAngle);
-    dataFile.print(", ");
-    dataFile.println(zAngleFiltered);
+    printer(false, currTime, data);
 
     dataFile.close();
     isFileNew = false; // Reset for next file
@@ -216,19 +250,12 @@ void loop() // Loop (main loop)
     Serial.println("Error! Cannot open file for writing.");
   }
 
-  // Print the filtered temperature
-  Serial.print("Current Time: ");
-  Serial.println(currTime);
-
-  // Print the filtered temperature
-  Serial.print("Filtered Temperature: ");
-  Serial.println(x_k);
-
-  // Print raw temperature to Serial monitor
-  Serial.print("Raw Temperature: ");
-  Serial.println(temperatureC);
+  // Print variable data to serial in CSV format
+  printer(true, currTime, data);
 
   drive_forward(204); // 80% speed is 204
+
+  // Add PID here
 
   if (((x_k - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
   {
