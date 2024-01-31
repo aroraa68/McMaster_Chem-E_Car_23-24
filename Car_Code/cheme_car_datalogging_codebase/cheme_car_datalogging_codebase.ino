@@ -230,7 +230,7 @@ void loop() // Loop (main loop)
 
   drive_forward(204); // 80% speed is 204
 
-  if (((x_k - initTemp) > tempDiff) ||((currTime - startTime) > tLim))
+  if (((x_k - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
   {
     stop_driving();
   }
