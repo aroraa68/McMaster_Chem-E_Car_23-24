@@ -57,15 +57,16 @@ const float goalAngle = 0.0; //the target angle to keep car straight
 float pidOutput; //the output correction from PID algorithm
 
 //the following numbers need to be adjusted through testing
-float Kp = 0.3; //proportional weighting
-float Ki = 0.3; //integral weighting
-float Kd = 0.3; //derivative weighting
+//temporarily set to 1,0,0
+float Kp = 1; //proportional weighting
+float Ki = 0; //integral weighting
+float Kd = 0; //derivative weighting
 
 //seperate speeds for left anf right wheel
 int left_offset = 0;
 int right_offset = 0;
 
-PID carPID(&zAngle, &pidOutput, &goalAngle, Kp, Ki, Kd, DIRECT); //PID control object. input, output, and goal angle are passed by value.
+PID carPID(&zAngle, &pidOutput, &goalAngle, Kp, Ki, Kd, DIRECT); //PID control object. input, output, and goal angle are passed by pointer.
 
 
 
@@ -94,9 +95,9 @@ void PID_loop()
 {
   carPID.Compute(); //library runs compute algorithm and updates pidOutput
 
-  if(pidOutput > 5){ //used the number 5 to have a small margin of error
+  if(pidOutput > 0){ //no buffer currently
     left_offset = abs(pidOutput); //If output needs to be adjusted in positive dir (to the right), increase left wheel speed
-  } else if(pidOutput < -5){
+  } else if(pidOutput < 0){
     right_offset = abs(pidOutput); //If output needs to be adjusted in negative dir (to the left), increase right wheel speed
   } else{
     left_offset = 0;
@@ -171,9 +172,10 @@ void loop() // Loop (main loop)
 
   // Recieve IMU data here
 
-  drive_forward(204); // 80% speed is 204
+  drive_forward(128); // 50% speed is 128
 
   // Add PID here
+  PID_loop();
 
   if (((x_k - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
   {
