@@ -6,6 +6,7 @@
 // Included libraries
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <PID_v1_bc.h> //PID library
 
 // Define drive motor pins
 #define left_pwm1 9
@@ -51,15 +52,31 @@ float r; // Measurement noise covariance
 unsigned long currTime;
 unsigned long startTime;
 
+//PID Loop variables
+const float goalAngle = 0.0; //the target angle to keep car straight
+float pidOutput; //the output correction from PID algorithm
+
+//the following numbers need to be adjusted through testing
+float Kp = 0.3; //proportional weighting
+float Ki = 0.3; //integral weighting
+float Kd = 0.3; //derivative weighting
+
+//seperate speeds for left anf right wheel
+int left_offset = 0;
+int right_offset = 0;
+
+PID carPID(&zAngle, &pidOutput, &goalAngle, Kp, Ki, Kd, DIRECT); //PID control object. input, output, and goal angle are passed by value.
+
+
+
 void drive_forward(int speed) // Drive function
 {
-  // left wheel
   digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, speed);
+  analogWrite(left_pwm2, speed+left_offset);
 
   // right wheel
   digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, speed);
+  analogWrite(right_pwm2, speed+right_offset);
 }
 
 void stop_driving() // Stop function
@@ -71,6 +88,21 @@ void stop_driving() // Stop function
   // right wheel
   digitalWrite(right_pwm1, HIGH);
   analogWrite(right_pwm2, 0);
+}
+
+void PID_loop()
+{
+  carPID.Compute(); //library runs compute algorithm and updates pidOutput
+
+  if(pidOutput > 5){ //used the number 5 to have a small margin of error
+    left_offset = abs(pidOutput); //If output needs to be adjusted in positive dir (to the right), increase left wheel speed
+  } else if(pidOutput < -5){
+    right_offset = abs(pidOutput); //If output needs to be adjusted in negative dir (to the left), increase right wheel speed
+  } else{
+    left_offset = 0;
+    right_offset = 0;
+  }
+
 }
 
 void setup() // Setup (executes once)
@@ -97,6 +129,12 @@ void setup() // Setup (executes once)
   initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
 
   // Servo acctuation goes here
+
+  //Activate PID
+  carPID.SetMode(AUTOMATIC);
+
+  //The pid outputs between -128 to 128 depending on how the motors should be adjusted. An output of 0 means no change. (This should be adjusted through testing).
+  carPID.setOutputLimits(-128, 128) 
 
   // Setting to drive motors output mode
   pinMode(left_pwm1, OUTPUT);
