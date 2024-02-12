@@ -205,7 +205,7 @@ void setup() // Setup (executes once)
 
   Serial.println("Success! SD card initialized.");
   Serial.println("Time,Temperature,Filtered Temperature,z-angle,Filtered z-angle"); // Data header
-  
+
   // Initialize the stir motor pins as outputs
   pinMode(stirPin1, OUTPUT);
   pinMode(stirPin2, OUTPUT);
