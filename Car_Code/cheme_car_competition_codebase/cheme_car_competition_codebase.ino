@@ -26,7 +26,7 @@ DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Tempera
 const float tempDiff = 3;
 
 // Time limit in milliseconds
-const unsigned long tLim = 12000;
+const unsigned long tLim = 120000;
 
 // The target angle to keep car straight
 double goalAngle = 0.0;
@@ -73,11 +73,11 @@ void drive_forward(int speed) // Drive function
 {
   // Left wheel
   digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, speed + left_offset);
+  analogWrite(left_pwm2, speed - left_offset);
 
   // Right wheel
   digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, speed + right_offset);
+  analogWrite(right_pwm2, speed - right_offset);
 }
 
 void stop_driving() // Stop function
@@ -126,7 +126,7 @@ void setup() // Setup (executes once)
   pinMode(stirPin2, OUTPUT);
 
   // Set the stir initial speed to 80%
-  analogWrite(stirPin1, 204);  // 80% of 255
+  analogWrite(stirPin1, 51);   // 20% of 255 (1-0.8)
   digitalWrite(stirPin2, LOW); // for fast decay
 
   sensors.begin();                       // initialize the DS18B20 sensor
@@ -148,10 +148,7 @@ void setup() // Setup (executes once)
   pinMode(right_pwm2, OUTPUT);
 
   // Start drive motors completely stopped
-  analogWrite(left_pwm1, 0);
-  digitalWrite(left_pwm2, LOW);
-  analogWrite(right_pwm1, 0);
-  digitalWrite(right_pwm2, LOW);
+  stop_driving();
 }
 
 void loop() // Loop (main loop)
