@@ -118,11 +118,11 @@ void PID_loop()
 
   if (pidOutput > 0)
   {
-    left_offset = abs(pidOutput); // If output needs to be adjusted in positive dir (to the right), increase left wheel speed
+    left_offset = abs(round(pidOutput)); // If output needs to be adjusted in positive dir (to the right), increase left wheel speed
   }
   else if (pidOutput < 0)
   {
-    right_offset = abs(pidOutput); // If output needs to be adjusted in negative dir (to the left), increase right wheel speed
+    right_offset = abs(round(pidOutput)); // If output needs to be adjusted in negative dir (to the left), increase right wheel speed
   }
   else
   {
@@ -229,8 +229,8 @@ void setup() // Setup (executes once)
   // Activate PID
   carPID.SetMode(AUTOMATIC);
 
-  // The pid outputs between -128 to 128 depending on how the motors should be adjusted. An output of 0 means no change. (This should be adjusted through testing).
-  carPID.SetOutputLimits(-128, 128);
+  // The pid outputs between -51 to 51 depending on how the motors should be adjusted. An output of 0 means no change. (This should be adjusted through testing).
+  carPID.SetOutputLimits(-51, 51);
 
   // Setting drive motors to output mode
   pinMode(left_pwm1, OUTPUT);
@@ -298,7 +298,7 @@ void loop() // Loop (main loop)
   // Print variable data to serial in CSV format
   printer(true, currTime, data);
 
-  drive_forward(128); // 50% speed is 128 to ensure PID correction never goes over max motor speed
+  drive_forward(51); // 80% speed in slow decay mode (1-0.8)*255
 
   // Update PID model
   PID_loop();
