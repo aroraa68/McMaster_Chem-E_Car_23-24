@@ -9,6 +9,8 @@
 #include <SD.h>
 #include <SPI.h>
 
+#define LED 13 // Status LED
+
 // Define drive motor pins
 #define left_pwm1 9
 #define left_pwm2 10
@@ -103,11 +105,11 @@ void stop_driving() // Stop function
 {
   // Left wheel
   digitalWrite(left_pwm1, HIGH);
-  digitalWrite(left_pwm2, HIGH);
+  analogWrite(left_pwm2, 255);
 
   // Right wheel
   digitalWrite(right_pwm1, HIGH);
-  digitalWrite(right_pwm2, HIGH);
+  analogWrite(right_pwm2, 255);
 }
 
 void PID_loop()
@@ -165,12 +167,6 @@ void setup() // Setup (executes once)
   Serial.begin(9600); // start serial communication (adjust baud rate as needed)
   Serial.println("Initalised at 9600 bps");
 
-  // Initialize Kalman filter parameters
-  x_k = 0.0; // Initial state estimate
-  p_k = 1.0; // Initial error covariance
-  q = 0.01;  // Process noise covariance
-  r = 0.1;   // Measurement noise covariance
-
   // Initialize SD Card
   Serial.println("SD card is initializing...");
 
@@ -217,6 +213,16 @@ void setup() // Setup (executes once)
   sensors.begin();                       // initialize the DS18B20 sensor
   sensors.requestTemperatures();         // request temperature from all devices on the bus
   initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
+
+  // Initialize Kalman filter parameters
+  x_k = initTemp; // Initial state estimate
+  p_k = 1.0;      // Initial error covariance
+  q = 0.01;       // Process noise covariance
+  r = 0.1;        // Measurement noise covariance
+
+  // Indicate status to be initialized
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, HIGH);
 
   // Servo acctuation goes here
 
@@ -300,6 +306,13 @@ void loop() // Loop (main loop)
   // Stop driving once temperature threshold is reached or time limit is exceeded
   if (((x_k - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
   {
+    // Indicate status to be finished
+    digitalWrite(LED, LOW);
+
+    // Stop driving
     stop_driving();
+
+    while (1)
+      ;
   }
 }
