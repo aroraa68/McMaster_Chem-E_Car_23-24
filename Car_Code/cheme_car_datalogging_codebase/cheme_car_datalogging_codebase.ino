@@ -92,11 +92,11 @@ void drive_forward(int speed) // Drive function
 {
   // Left wheel
   digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, speed);
+  analogWrite(left_pwm2, speed + left_offset);
 
   // Right wheel
   digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, speed);
+  analogWrite(right_pwm2, speed + right_offset);
 }
 
 void stop_driving() // Stop function
@@ -221,10 +221,10 @@ void setup() // Setup (executes once)
   // Servo acctuation goes here
 
   // Activate PID
-  carPID.SetMode(AUTOMATIC);
+  // carPID.SetMode(AUTOMATIC);
 
   // The pid outputs between -128 to 128 depending on how the motors should be adjusted. An output of 0 means no change. (This should be adjusted through testing).
-  carPID.SetOutputLimits(-128, 128);
+  // carPID.SetOutputLimits(-128, 128);
 
   // Setting drive motors to output mode
   pinMode(left_pwm1, OUTPUT);
@@ -266,13 +266,6 @@ void loop() // Loop (main loop)
 
   if (dataFile)
   {
-    // Writes header if it's a new file
-    if (!isFileNew)
-    {
-      dataFile.println("Time,Temperature,Filtered Temperature,z-Angle,Filtered z-Angle");
-      isFileNew = true;
-    }
-
     // Obtain current time in seconds
     currTime = millis();
 
@@ -299,7 +292,7 @@ void loop() // Loop (main loop)
   drive_forward(128); // 50% speed is 128 to ensure PID correction never goes over max motor speed
 
   // Update PID model
-  PID_loop();
+  // PID_loop();
 
   // Stop driving once temperature threshold is reached or time limit is exceeded
   if (((x_k - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
