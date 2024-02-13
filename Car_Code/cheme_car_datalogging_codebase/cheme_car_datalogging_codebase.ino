@@ -12,8 +12,8 @@
 // Define drive motor pins
 #define left_pwm1 9
 #define left_pwm2 10
-#define right_pwm1 11
-#define right_pwm2 12
+#define right_pwm1 12
+#define right_pwm2 11
 
 // Define the PWM pins for the stir bar motor
 #define stirPin1 A3 // Alternate A3 temporarily used due to chip defect for M3 on 5
@@ -103,11 +103,11 @@ void stop_driving() // Stop function
 {
   // Left wheel
   digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, 0);
+  digitalWrite(left_pwm2, HIGH);
 
   // Right wheel
   digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, 0);
+  digitalWrite(right_pwm2, HIGH);
 }
 
 void PID_loop()
@@ -211,7 +211,7 @@ void setup() // Setup (executes once)
   pinMode(stirPin2, OUTPUT);
 
   // Set the stir initial speed to 80%
-  analogWrite(stirPin1, 51);   // 20% of 255 (1-0.8)
+  analogWrite(stirPin1, 204);  // 80% of 255
   digitalWrite(stirPin2, LOW); // for fast decay
 
   sensors.begin();                       // initialize the DS18B20 sensor
