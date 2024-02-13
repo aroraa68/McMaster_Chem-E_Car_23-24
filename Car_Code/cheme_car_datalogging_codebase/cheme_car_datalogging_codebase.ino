@@ -16,8 +16,8 @@
 #define right_pwm2 12
 
 // Define the PWM pins for the stir bar motor
-#define stirPin1 5
-#define stirPin2 6
+#define stirPin1 A3 // Alternate A3 temporarily used due to chip defect for M3 on 5
+#define stirPin2 A4 // Alternate A4 temporarily used due to chip defect for M3 on 6
 
 #define ONE_WIRE_BUS A1 // pin for the DS18B20 data line
 
@@ -232,8 +232,8 @@ void setup() // Setup (executes once)
   pinMode(right_pwm1, OUTPUT);
   pinMode(right_pwm2, OUTPUT);
 
-  // Start drive motors completely stopped
-  stop_driving();
+  // Start drive motors at full power to overcome stall
+  drive_forward(0);
 }
 
 void loop() // Loop (main loop)
