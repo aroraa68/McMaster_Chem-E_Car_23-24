@@ -1,11 +1,11 @@
 // TODO:
 // IMU - Needs to be initialized, periodically poll sensor, store Z-axis angle in variable, take initial value as 0 deg print out to serial monitor, look into kalman filters for reducing sensor noise.
-// Servo Motor - Needs to be initialized, turn 180 deg clockwise once at start to dump reactants, wait 1 sec to finish dumping, turn back 180 deg counter-clockwise to return to upright position, set speed to 100% for now, tune later.
 
 // Included libraries
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <PID_v1_bc.h>
+#include <Servo.h>
 #include <SD.h>
 #include <SPI.h>
 
@@ -20,6 +20,10 @@
 // Define the PWM pins for the stir bar motor
 #define stirPin1 A3 // Alternate A3 temporarily used due to chip defect for M3 on 5
 #define stirPin2 A4 // Alternate A4 temporarily used due to chip defect for M3 on 6
+
+// Define servo pin, create object
+#define servo_pwm 13
+Servo servo;
 
 #define ONE_WIRE_BUS A1 // pin for the DS18B20 data line
 
@@ -110,6 +114,13 @@ void stop_driving() // Stop function
   // Right wheel
   digitalWrite(right_pwm1, HIGH);
   analogWrite(right_pwm2, 255);
+}
+
+void servo_dump() // Dump contents of bowl into braking vessel with servo
+{
+  servo.write(180); // Rotate to 180 deg position without delay
+  delay(500);       // Wait 0.5 s
+  servo.write(0);   // Return to default position
 }
 
 void PID_loop()
@@ -224,7 +235,12 @@ void setup() // Setup (executes once)
   pinMode(LED, OUTPUT);
   digitalWrite(LED, HIGH);
 
-  // Servo acctuation goes here
+  // Initialize servo to default position
+  servo.attach(servo_pwm);
+  servo.write(0);
+
+  // Dump reactants before starting drive
+  servo_dump();
 
   // Activate PID
   carPID.SetMode(AUTOMATIC);
