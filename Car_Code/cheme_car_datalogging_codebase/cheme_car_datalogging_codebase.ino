@@ -9,15 +9,17 @@
 #include <SD.h>
 #include <SPI.h>
 
+#define LED 13 // Status LED
+
 // Define drive motor pins
 #define left_pwm1 9
 #define left_pwm2 10
-#define right_pwm1 11
-#define right_pwm2 12
+#define right_pwm1 12
+#define right_pwm2 11
 
 // Define the PWM pins for the stir bar motor
-#define stirPin1 5
-#define stirPin2 6
+#define stirPin1 A3 // Alternate A3 temporarily used due to chip defect for M3 on 5
+#define stirPin2 A4 // Alternate A4 temporarily used due to chip defect for M3 on 6
 
 #define ONE_WIRE_BUS A1 // pin for the DS18B20 data line
 
@@ -39,7 +41,7 @@ bool isFileNew = false; // Checks for new file
 const float tempDiff = 3;
 
 // Time limit in milliseconds
-const unsigned long tLim = 12000;
+const unsigned long tLim = 120000;
 
 // The target angle to keep car straight
 double goalAngle = 0.0;
@@ -92,22 +94,22 @@ void drive_forward(int speed) // Drive function
 {
   // Left wheel
   digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, speed);
+  analogWrite(left_pwm2, speed - left_offset);
 
   // Right wheel
   digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, speed);
+  analogWrite(right_pwm2, speed - right_offset);
 }
 
 void stop_driving() // Stop function
 {
   // Left wheel
   digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, 0);
+  analogWrite(left_pwm2, 255);
 
   // Right wheel
   digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, 0);
+  analogWrite(right_pwm2, 255);
 }
 
 void PID_loop()
@@ -116,11 +118,11 @@ void PID_loop()
 
   if (pidOutput > 0)
   {
-    left_offset = abs(pidOutput); // If output needs to be adjusted in positive dir (to the right), increase left wheel speed
+    left_offset = abs(round(pidOutput)); // If output needs to be adjusted in positive dir (to the right), increase left wheel speed
   }
   else if (pidOutput < 0)
   {
-    right_offset = abs(pidOutput); // If output needs to be adjusted in negative dir (to the left), increase right wheel speed
+    right_offset = abs(round(pidOutput)); // If output needs to be adjusted in negative dir (to the left), increase right wheel speed
   }
   else
   {
@@ -164,12 +166,6 @@ void setup() // Setup (executes once)
 
   Serial.begin(9600); // start serial communication (adjust baud rate as needed)
   Serial.println("Initalised at 9600 bps");
-
-  // Initialize Kalman filter parameters
-  x_k = 0.0; // Initial state estimate
-  p_k = 1.0; // Initial error covariance
-  q = 0.01;  // Process noise covariance
-  r = 0.1;   // Measurement noise covariance
 
   // Initialize SD Card
   Serial.println("SD card is initializing...");
@@ -218,13 +214,23 @@ void setup() // Setup (executes once)
   sensors.requestTemperatures();         // request temperature from all devices on the bus
   initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
 
+  // Initialize Kalman filter parameters
+  x_k = initTemp; // Initial state estimate
+  p_k = 1.0;      // Initial error covariance
+  q = 0.01;       // Process noise covariance
+  r = 0.1;        // Measurement noise covariance
+
+  // Indicate status to be initialized
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, HIGH);
+
   // Servo acctuation goes here
 
   // Activate PID
   carPID.SetMode(AUTOMATIC);
 
-  // The pid outputs between -128 to 128 depending on how the motors should be adjusted. An output of 0 means no change. (This should be adjusted through testing).
-  carPID.SetOutputLimits(-128, 128);
+  // The pid outputs between -51 to 51 depending on how the motors should be adjusted. An output of 0 means no change. (This should be adjusted through testing).
+  carPID.SetOutputLimits(-51, 51);
 
   // Setting drive motors to output mode
   pinMode(left_pwm1, OUTPUT);
@@ -232,11 +238,8 @@ void setup() // Setup (executes once)
   pinMode(right_pwm1, OUTPUT);
   pinMode(right_pwm2, OUTPUT);
 
-  // Start drive motors completely stopped
-  analogWrite(left_pwm1, 0);
-  digitalWrite(left_pwm2, LOW);
-  analogWrite(right_pwm1, 0);
-  digitalWrite(right_pwm2, LOW);
+  // Start drive motors at full power to overcome stall
+  drive_forward(0);
 }
 
 void loop() // Loop (main loop)
@@ -286,7 +289,6 @@ void loop() // Loop (main loop)
     printer(false, currTime, data);
 
     dataFile.close();
-    isFileNew = false; // Reset for next file
   }
   else
   {
@@ -296,7 +298,7 @@ void loop() // Loop (main loop)
   // Print variable data to serial in CSV format
   printer(true, currTime, data);
 
-  drive_forward(128); // 50% speed is 128 to ensure PID correction never goes over max motor speed
+  drive_forward(51); // 80% speed in slow decay mode (1-0.8)*255
 
   // Update PID model
   PID_loop();
@@ -304,6 +306,13 @@ void loop() // Loop (main loop)
   // Stop driving once temperature threshold is reached or time limit is exceeded
   if (((x_k - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
   {
+    // Indicate status to be finished
+    digitalWrite(LED, LOW);
+
+    // Stop driving
     stop_driving();
+
+    while (1)
+      ;
   }
 }

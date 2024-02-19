@@ -12,15 +12,17 @@
 #define servo_pwm 13
 Servo servo;
 
+#define LED 13 // Status LED
+
 // Define drive motor pins
 #define left_pwm1 9
 #define left_pwm2 10
-#define right_pwm1 11
-#define right_pwm2 12
+#define right_pwm1 12
+#define right_pwm2 11
 
 // Define the PWM pins for the stir bar motor
-#define stirPin1 5
-#define stirPin2 6
+#define stirPin1 5 // Alternate A3
+#define stirPin2 6 // Alternate A4
 
 #define ONE_WIRE_BUS A1 // pin for the DS18B20 data line
 
@@ -31,7 +33,7 @@ DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Tempera
 const float tempDiff = 3;
 
 // Time limit in milliseconds
-const unsigned long tLim = 12000;
+const unsigned long tLim = 120000;
 
 // The target angle to keep car straight
 double goalAngle = 0.0;
@@ -78,41 +80,22 @@ void drive_forward(int speed) // Drive function
 {
   // Left wheel
   digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, speed + left_offset);
+  analogWrite(left_pwm2, speed - left_offset);
 
   // Right wheel
   digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, speed + right_offset);
+  analogWrite(right_pwm2, speed - right_offset);
 }
 
 void stop_driving() // Stop function
 {
   // Left wheel
   digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, 0);
+  analogWrite(left_pwm2, 255);
 
   // Right wheel
   digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, 0);
-}
-
-void PID_loop()
-{
-  carPID.Compute(); // Run compute algorithm and updates pidOutput
-
-  if (pidOutput > 0)
-  {
-    left_offset = abs(pidOutput); // If output needs to be adjusted in positive dir (to the right), increase left wheel speed
-  }
-  else if (pidOutput < 0)
-  {
-    right_offset = abs(pidOutput); // If output needs to be adjusted in negative dir (to the left), increase right wheel speed
-  }
-  else
-  {
-    left_offset = 0;
-    right_offset = 0;
-  }
+  analogWrite(right_pwm2, 255);
 }
 
 void servo_dump(){
@@ -121,16 +104,29 @@ void servo_dump(){
   servo.write(0); //return to default position
 }
 
+void PID_loop()
+{
+  carPID.Compute(); // Run compute algorithm and updates pidOutput
+
+  if (pidOutput > 0)
+  {
+    left_offset = abs(round(pidOutput)); // If output needs to be adjusted in positive dir (to the right), increase left wheel speed
+  }
+  else if (pidOutput < 0)
+  {
+    right_offset = abs(round(pidOutput)); // If output needs to be adjusted in negative dir (to the left), increase right wheel speed
+  }
+  else
+  {
+    left_offset = 0;
+    right_offset = 0;
+  }
+}
+
 void setup() // Setup (executes once)
 {
   // Get time at start
   startTime = millis();
-
-  // Initialize Kalman filter parameters
-  x_k = 0.0; // Initial state estimate
-  p_k = 1.0; // Initial error covariance
-  q = 0.01;  // Process noise covariance
-  r = 0.1;   // Measurement noise covariance
 
   // Initialize the stir motor pins as outputs
   pinMode(stirPin1, OUTPUT);
@@ -144,25 +140,15 @@ void setup() // Setup (executes once)
   sensors.requestTemperatures();         // request temperature from all devices on the bus
   initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
 
-  // Servo acctuation goes here
+  // Initialize Kalman filter parameters
+  x_k = initTemp; // Initial state estimate
+  p_k = 1.0;      // Initial error covariance
+  q = 0.01;       // Process noise covariance
+  r = 0.1;        // Measurement noise covariance
 
-  // Activate PID
-  carPID.SetMode(AUTOMATIC);
-
-  // The pid outputs between -128 to 128 depending on how the motors should be adjusted. An output of 0 means no change. (This should be adjusted through testing).
-  carPID.SetOutputLimits(-128, 128);
-
-  // Setting to drive motors output mode
-  pinMode(left_pwm1, OUTPUT);
-  pinMode(left_pwm2, OUTPUT);
-  pinMode(right_pwm1, OUTPUT);
-  pinMode(right_pwm2, OUTPUT);
-
-  // Start drive motors completely stopped
-  analogWrite(left_pwm1, 0);
-  digitalWrite(left_pwm2, LOW);
-  analogWrite(right_pwm1, 0);
-  digitalWrite(right_pwm2, LOW);
+  // Indicate status to be initialized
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, HIGH);
 
   //initialize servo, initialize to default position
   servo.attach(servo_pwm); 
@@ -171,6 +157,20 @@ void setup() // Setup (executes once)
   //dump reactants before starting drive
   servo_dump();
 
+  // Activate PID
+  carPID.SetMode(AUTOMATIC);
+
+  // The pid outputs between -51 to 51 depending on how the motors should be adjusted. An output of 0 means no change. (This should be adjusted through testing).
+  carPID.SetOutputLimits(-51, 51);
+
+  // Setting to drive motors output mode
+  pinMode(left_pwm1, OUTPUT);
+  pinMode(left_pwm2, OUTPUT);
+  pinMode(right_pwm1, OUTPUT);
+  pinMode(right_pwm2, OUTPUT);
+
+  // Start drive motors at full power to overcome stall
+  drive_forward(0);
 }
 
 void loop() // Loop (main loop)
@@ -195,7 +195,7 @@ void loop() // Loop (main loop)
 
   // Recieve IMU data here
 
-  drive_forward(128); // 50% speed is 128 to ensure PID correction never goes over max motor speed
+  drive_forward(51); // 80% speed in slow decay mode (1-0.8)*255
 
   // Update PID model
   PID_loop();
@@ -203,6 +203,13 @@ void loop() // Loop (main loop)
   // Stop driving once temperature threshold is reached or time limit is exceeded
   if (((x_k - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
   {
+    // Indicate status to be finished
+    digitalWrite(LED, LOW);
+
+    // Stop driving
     stop_driving();
+
+    while (1)
+      ;
   }
 }
