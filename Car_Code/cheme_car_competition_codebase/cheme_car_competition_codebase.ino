@@ -6,6 +6,11 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <PID_v1_bc.h>
+#include <Servo.h>
+
+//define servo pin, create object
+#define servo_pwm 13
+Servo servo;
 
 // Define drive motor pins
 #define left_pwm1 9
@@ -110,6 +115,12 @@ void PID_loop()
   }
 }
 
+void servo_dump(){
+  servo.write(180); //rotate to 180 deg position without delay
+  delay(500); //wait 0.5s
+  servo.write(0); //return to default position
+}
+
 void setup() // Setup (executes once)
 {
   // Get time at start
@@ -152,6 +163,14 @@ void setup() // Setup (executes once)
   digitalWrite(left_pwm2, LOW);
   analogWrite(right_pwm1, 0);
   digitalWrite(right_pwm2, LOW);
+
+  //initialize servo, initialize to default position
+  servo.attach(servo_pwm); 
+  servo.write(0);
+
+  //dump reactants before starting drive
+  servo_dump();
+
 }
 
 void loop() // Loop (main loop)
