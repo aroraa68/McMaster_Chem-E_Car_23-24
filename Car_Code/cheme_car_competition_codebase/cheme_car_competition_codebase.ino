@@ -6,6 +6,11 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <PID_v1_bc.h>
+#include <Servo.h>
+
+//define servo pin, create object
+#define servo_pwm 13
+Servo servo;
 
 #define LED 13 // Status LED
 
@@ -93,6 +98,12 @@ void stop_driving() // Stop function
   analogWrite(right_pwm2, 255);
 }
 
+void servo_dump(){
+  servo.write(180); //rotate to 180 deg position without delay
+  delay(500); //wait 0.5s
+  servo.write(0); //return to default position
+}
+
 void PID_loop()
 {
   carPID.Compute(); // Run compute algorithm and updates pidOutput
@@ -139,7 +150,12 @@ void setup() // Setup (executes once)
   pinMode(LED, OUTPUT);
   digitalWrite(LED, HIGH);
 
-  // Servo acctuation goes here
+  //initialize servo, initialize to default position
+  servo.attach(servo_pwm); 
+  servo.write(0);
+
+  //dump reactants before starting drive
+  servo_dump();
 
   // Activate PID
   carPID.SetMode(AUTOMATIC);
