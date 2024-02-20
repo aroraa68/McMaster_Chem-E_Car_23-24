@@ -1,15 +1,17 @@
 // TODO:
-// IMU - Needs to be initialized, periodically poll sensor, store Z-axis angle in variable, take initial value as 0 deg print out to serial monitor, look into kalman filters for reducing sensor noise.
+// Tune Kalman Filtering for both sensors & PID coefficients
 
 // Included libraries
 #include <OneWire.h>
+#include <Wire.h>
+#include <MPU6050_light.h>
 #include <DallasTemperature.h>
 #include <PID_v1_bc.h>
 #include <Servo.h>
 #include <SD.h>
 #include <SPI.h>
 
-#define LED 13 // Status LED
+#define LED 8 // Status LED
 
 // Define drive motor pins
 #define left_pwm1 9
@@ -29,6 +31,8 @@ Servo servo;
 
 // Define CS pin for SD card
 #define chip_select 4
+
+MPU6050 mpu(Wire); // Create MPU6050 instance
 
 OneWire oneWire(ONE_WIRE_BUS);       // create a OneWire instance to communicate with the senso
 DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Temperature sensor
@@ -55,25 +59,25 @@ int runCount;
 int checkRun;
 
 // Define accelerometer variables
-double zAngle;         // z-axis angle
-double zAngleFiltered; // Filtered z-axis angle
+double zAngle; // z-axis angle
 
 // variables to store temperature
-float temperatureC;
-float initTemp;
+double temperatureC; // Current temperature
+double initTemp;     // Initial temperature for differential calculation
 
-float data[4]; // Data array
+double data[4]; // Data array
 
 // KALMAN FILTER variables
-float k;         // kalman gain
-float x_k;       // Filtered temperature
-float p_k;       // Initial error covariance
-float x_k_minus; // Predicted next state estimate
-float p_k_minus; // Predicted error covariance for the next state
+double x_temp; // Filtered temperature
+double p_temp; // Initial error covariance
+double x_MPU;  // Filtered temperature
+double p_MPU;  // Initial error covariance
 
 // Process noise and measurement noise
-float q; // Process noise covariance
-float r; // Measurement noise covariance
+double q_temp; // Process noise covariance
+double r_temp; // Measurement noise covariance
+double q_MPU;  // Process noise covariance
+double r_MPU;  // Measurement noise covariance
 
 // Keeping track of time
 unsigned long currTime;
@@ -92,7 +96,7 @@ int left_offset = 0;
 int right_offset = 0;
 
 // PID control object; input, output, and goal angle are passed by pointer.
-PID carPID(&zAngle, &pidOutput, &goalAngle, Kp, Ki, Kd, DIRECT);
+PID carPID(&x_MPU, &pidOutput, &goalAngle, Kp, Ki, Kd, DIRECT);
 
 void drive_forward(int speed) // Drive function
 {
@@ -119,11 +123,11 @@ void stop_driving() // Stop function
 void servo_dump() // Dump contents of bowl into braking vessel with servo
 {
   servo.write(180); // Rotate to 180 deg position without delay
-  delay(500);       // Wait 0.5 s
+  delay(1000);      // Wait 1 s
   servo.write(0);   // Return to default position
 }
 
-void PID_loop()
+void PID_loop() // Update motor speeds according to PID algorithm
 {
   carPID.Compute(); // Run compute algorithm and updates pidOutput
 
@@ -142,7 +146,36 @@ void PID_loop()
   }
 }
 
-void printer(bool serialTrue, unsigned long millisTime, float outputs[4]) // Output function
+void kalman_filter(double x_k, double p_k, double q, double r, double input, bool tempTrue) // Kalman filtering algorithm
+{
+  // Kalman filter prediction
+  double x_k_minus = x_k;     // Predicted next state estimate
+  double p_k_minus = p_k + q; // Predicted error covariance for the next state
+
+  // Kalman filter update
+
+  /* Kalman gain: calculated based on the predicted error covariance
+  and the measurement noise covariance, used to update the
+  state estimate (x) and error covariance (p) */
+  double k = p_k_minus / (p_k_minus + r); // kalman gain
+
+  // comparison with actual sensor reading
+  x_k = x_k_minus + k * (input - x_k_minus); // Updated state estimate
+  p_k = (1 - k) * p_k_minus;                 // Updated error covariance
+
+  if (tempTrue)
+  {
+    x_temp = x_k;
+    p_temp = p_k;
+  }
+  else
+  {
+    x_MPU = x_k;
+    p_MPU = p_k;
+  }
+}
+
+void printer(bool serialTrue, unsigned long millisTime, double outputs[4]) // Output function
 {
   if (serialTrue)
   {
@@ -225,11 +258,22 @@ void setup() // Setup (executes once)
   sensors.requestTemperatures();         // request temperature from all devices on the bus
   initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
 
+  Wire.begin();      // Initialize I2C communication
+  mpu.begin();       // Initialize MPU6050
+  mpu.calcOffsets(); // Zero Yaw Angle
+
+  mpu.update();             // Update MPU readings
+  zAngle = mpu.getAngleZ(); // Get z-axis angle from MPU
+
   // Initialize Kalman filter parameters
-  x_k = initTemp; // Initial state estimate
-  p_k = 1.0;      // Initial error covariance
-  q = 0.01;       // Process noise covariance
-  r = 0.1;        // Measurement noise covariance
+  x_temp = initTemp; // Initial state estimate
+  p_temp = 1.0;      // Initial error covariance
+  q_temp = 0.01;     // Process noise covariance
+  r_temp = 0.1;      // Measurement noise covariance
+  x_MPU = zAngle;    // Initial state estimate
+  p_MPU = 1.0;       // Initial error covariance
+  q_MPU = 0.01;      // Process noise covariance
+  r_MPU = 0.1;       // Measurement noise covariance
 
   // Indicate status to be initialized
   pinMode(LED, OUTPUT);
@@ -263,23 +307,14 @@ void loop() // Loop (main loop)
   sensors.requestTemperatures();             // request temperature from all devices on the bus
   temperatureC = sensors.getTempCByIndex(0); // get temperature in Celsius
 
-  // Kalman filter prediction
-  x_k_minus = x_k;     // Predicted next state estimate
-  p_k_minus = p_k + q; // Predicted error covariance for the next state
+  mpu.update();             // Update MPU readings
+  zAngle = mpu.getAngleZ(); // Get z-axis angle from MPU
 
-  // Kalman filter update
+  // Update kalman filters
+  kalman_filter(x_temp, p_temp, q_temp, r_temp, temperatureC, true);
+  kalman_filter(x_MPU, p_MPU, q_MPU, r_MPU, zAngle, false);
 
-  /* Kalman gain: calculated based on the predicted error covariance
-  and the measurement noise covariance, used to update the
-  state estimate (x_k) and error covariance (p_k) */
-  k = p_k_minus / (p_k_minus + r); // kalman gain
-
-  // comparison with actual temp reading
-  x_k = x_k_minus + k * (temperatureC - x_k_minus); // Updated state estimate
-  p_k = (1 - k) * p_k_minus;                        // Updated error covariance
-
-  // Recieve IMU data here
-
+  // Open csv file
   fileName = "Run_" + String(runCount) + ".csv";
   dataFile = SD.open(fileName, FILE_WRITE);
 
@@ -297,9 +332,9 @@ void loop() // Loop (main loop)
 
     // Update data array
     data[0] = temperatureC;
-    data[1] = x_k;
+    data[1] = x_temp;
     data[2] = zAngle;
-    data[3] = zAngleFiltered;
+    data[3] = x_MPU;
 
     // Write variable data to the file in CSV format
     printer(false, currTime, data);
@@ -317,10 +352,10 @@ void loop() // Loop (main loop)
   drive_forward(51); // 80% speed in slow decay mode (1-0.8)*255
 
   // Update PID model
-  PID_loop();
+  // PID_loop();
 
   // Stop driving once temperature threshold is reached or time limit is exceeded
-  if (((x_k - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
+  if (((x_temp - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
   {
     // Indicate status to be finished
     digitalWrite(LED, LOW);
