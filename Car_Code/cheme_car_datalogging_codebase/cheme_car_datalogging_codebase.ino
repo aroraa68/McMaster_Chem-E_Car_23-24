@@ -352,7 +352,7 @@ void loop() // Loop (main loop)
   drive_forward(51); // 80% speed in slow decay mode (1-0.8)*255
 
   // Update PID model
-  // PID_loop();
+  PID_loop();
 
   // Stop driving once temperature threshold is reached or time limit is exceeded
   if (((x_temp - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
