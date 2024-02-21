@@ -1,5 +1,5 @@
 // TODO:
-// Tune Kalman Filtering for both sensors & PID coefficients
+// Tune Kalman filtering for both sensors & PID coefficients
 
 // Included libraries
 #include <OneWire.h>
@@ -23,18 +23,19 @@
 #define stirPin1 A3 // Alternate A3 temporarily used due to chip defect for M3 on 5
 #define stirPin2 A4 // Alternate A4 temporarily used due to chip defect for M3 on 6
 
-// Define servo pin, create object
+// Define servo pin
 #define servo_pwm 13
-Servo servo;
 
-#define ONE_WIRE_BUS A1 // pin for the DS18B20 data line
+#define ONE_WIRE_BUS A1 // Pin for the DS18B20 data line
 
 // Define CS pin for SD card
 #define chip_select 4
 
+Servo servo; // Create servo object
+
 MPU6050 mpu(Wire); // Create MPU6050 instance
 
-OneWire oneWire(ONE_WIRE_BUS);       // create a OneWire instance to communicate with the senso
+OneWire oneWire(ONE_WIRE_BUS);       // create a OneWire instance to communicate with the sensor
 DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Temperature sensor
 
 // Define files
@@ -43,7 +44,7 @@ File nextFile;
 File dataFile;
 String fileName;
 
-bool isFileNew = false; // Checks for new file
+bool isFileNew = true; // Checks for new file
 
 // Temperature threshold
 const float tempDiff = 3;
@@ -87,15 +88,15 @@ unsigned long startTime;
 double pidOutput; // The output correction from the PID algorithm
 
 // The following numbers need to be adjusted through testing
-double Kp = 0.3; // Proportional weighting
-double Ki = 0;   // Integral weighting
-double Kd = 0;   // Derivative weighting
+double Kp = 1; // Proportional weighting
+double Ki = 0; // Integral weighting
+double Kd = 0; // Derivative weighting
 
 // Offset speeds for left and right wheel
 int left_offset = 0;
 int right_offset = 0;
 
-// PID control object; input, output, and goal angle are passed by pointer.
+// PID control object; input, output, and goal angle are passed by pointer
 PID carPID(&x_MPU, &pidOutput, &goalAngle, Kp, Ki, Kd, DIRECT);
 
 void drive_forward(int speed) // Drive function
@@ -134,10 +135,12 @@ void PID_loop() // Update motor speeds according to PID algorithm
   if (pidOutput > 0)
   {
     left_offset = abs(round(pidOutput)); // If output needs to be adjusted in positive dir (to the right), increase left wheel speed
+    right_offset = 0;                    // Zero other wheel offset to prevent instability
   }
   else if (pidOutput < 0)
   {
     right_offset = abs(round(pidOutput)); // If output needs to be adjusted in negative dir (to the left), increase right wheel speed
+    left_offset = 0;                      // Zero other wheel offset to prevent instability
   }
   else
   {
@@ -156,14 +159,14 @@ void kalman_filter(double x_k, double p_k, double q, double r, double input, boo
 
   /* Kalman gain: calculated based on the predicted error covariance
   and the measurement noise covariance, used to update the
-  state estimate (x) and error covariance (p) */
-  double k = p_k_minus / (p_k_minus + r); // kalman gain
+  state estimate (x_k) and error covariance (p_k) */
+  double k = p_k_minus / (p_k_minus + r); // Kalman gain
 
-  // comparison with actual sensor reading
+  // Comparison with actual sensor reading
   x_k = x_k_minus + k * (input - x_k_minus); // Updated state estimate
   p_k = (1 - k) * p_k_minus;                 // Updated error covariance
 
-  if (tempTrue)
+  if (tempTrue) // Update state for temperature sensor or IMU accordingly
   {
     x_temp = x_k;
     p_temp = p_k;
@@ -177,7 +180,7 @@ void kalman_filter(double x_k, double p_k, double q, double r, double input, boo
 
 void printer(bool serialTrue, unsigned long millisTime, double outputs[4]) // Output function
 {
-  if (serialTrue)
+  if (serialTrue) // Print data to serial or SD card file accordingly in .csv format
   {
     Serial.print(millisTime);
 
@@ -252,15 +255,15 @@ void setup() // Setup (executes once)
 
   // Set the stir initial speed to 80%
   analogWrite(stirPin1, 204);  // 80% of 255
-  digitalWrite(stirPin2, LOW); // for fast decay
+  digitalWrite(stirPin2, LOW); // For fast decay
 
-  sensors.begin();                       // initialize the DS18B20 sensor
-  sensors.requestTemperatures();         // request temperature from all devices on the bus
-  initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
+  sensors.begin();                       // Initialize the DS18B20 sensor
+  sensors.requestTemperatures();         // Request temperature from all devices on the bus
+  initTemp = sensors.getTempCByIndex(0); // Get temperature in Celsius
 
   Wire.begin();      // Initialize I2C communication
   mpu.begin();       // Initialize MPU6050
-  mpu.calcOffsets(); // Zero Yaw Angle
+  mpu.calcOffsets(); // Zero yaw angle
 
   mpu.update();             // Update MPU readings
   zAngle = mpu.getAngleZ(); // Get z-axis angle from MPU
@@ -304,8 +307,8 @@ void setup() // Setup (executes once)
 
 void loop() // Loop (main loop)
 {
-  sensors.requestTemperatures();             // request temperature from all devices on the bus
-  temperatureC = sensors.getTempCByIndex(0); // get temperature in Celsius
+  sensors.requestTemperatures();             // Request temperature from all devices on the bus
+  temperatureC = sensors.getTempCByIndex(0); // Get temperature in Celsius
 
   mpu.update();             // Update MPU readings
   zAngle = mpu.getAngleZ(); // Get z-axis angle from MPU
@@ -321,10 +324,10 @@ void loop() // Loop (main loop)
   if (dataFile)
   {
     // Writes header if it's a new file
-    if (!isFileNew)
+    if (isFileNew)
     {
       dataFile.println("Time,Temperature,Filtered Temperature,z-Angle,Filtered z-Angle");
-      isFileNew = true;
+      isFileNew = false;
     }
 
     // Obtain current time in seconds
@@ -364,6 +367,6 @@ void loop() // Loop (main loop)
     stop_driving();
 
     while (1)
-      ;
+      ; // Do nothing for remainder of uptime
   }
 }
