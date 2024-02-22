@@ -57,7 +57,6 @@ double goalAngle = 0.0;
 
 // Initialize run count for SD card file
 int runCount;
-int checkRun;
 
 // Define accelerometer variables
 double zAngle; // z-axis angle
@@ -225,15 +224,15 @@ void setup() // Setup (executes once)
   }
 
   root = SD.open("/"); // Open SD root directory
-  checkRun = 0;
+  runCount = 0;
 
   while (true)
   {
     nextFile = root.openNextFile();
 
     if (nextFile)
-    { // Increment with each existing file
-      checkRun++;
+    {
+      runCount++; // Increment with each existing file
     }
     else
     {
@@ -243,8 +242,6 @@ void setup() // Setup (executes once)
   }
 
   root.close();
-
-  runCount = checkRun + 1;
 
   Serial.println("Success! SD card initialized.");
   Serial.println("Time,Temperature,Filtered Temperature,z-angle,Filtered z-angle"); // Data header
