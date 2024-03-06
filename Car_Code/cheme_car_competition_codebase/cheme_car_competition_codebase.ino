@@ -12,8 +12,8 @@
 #define LED 8 // Status LED
 
 // Define drive motor pins
-#define left_pwm1 9
-#define left_pwm2 10
+#define left_pwm1 10
+#define left_pwm2 9
 #define right_pwm1 12
 #define right_pwm2 11
 
@@ -185,9 +185,9 @@ void setup() // Setup (executes once)
 
   // Initialize Kalman filter parameters
   x_temp = initTemp; // Initial state estimate
-  p_temp = 1.0;      // Initial error covariance
+  p_temp = 0.1;      // Initial error covariance
   q_temp = 0.01;     // Process noise covariance
-  r_temp = 0.1;      // Measurement noise covariance
+  r_temp = 0.5;      // Measurement noise covariance
   x_MPU = zAngle;    // Initial state estimate
   p_MPU = 1.0;       // Initial error covariance
   q_MPU = 0.01;      // Process noise covariance
