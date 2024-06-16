@@ -16,8 +16,8 @@
 // Define drive motor pins
 #define left_pwm1 10
 #define left_pwm2 9
-#define right_pwm1 12
-#define right_pwm2 11
+#define right_pwm1 11
+#define right_pwm2 12
 
 // Define the PWM pins for the stir bar motor
 #define stirPin1 A3 // Alternate A3 temporarily used due to chip defect for M3 on 5
@@ -101,30 +101,30 @@ PID carPID(&x_MPU, &pidOutput, &goalAngle, Kp, Ki, Kd, DIRECT);
 void drive_forward(int speed) // Drive function
 {
   // Left wheel
-  digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, speed - left_offset);
+  digitalWrite(left_pwm2, HIGH);
+  analogWrite(left_pwm1, speed - left_offset);
 
   // Right wheel
-  digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, speed - right_offset);
+  digitalWrite(right_pwm2, HIGH);
+  analogWrite(right_pwm1, speed - right_offset);
 }
 
 void stop_driving() // Stop function
 {
   // Left wheel
-  digitalWrite(left_pwm1, HIGH);
-  analogWrite(left_pwm2, 255);
+  digitalWrite(left_pwm2, HIGH);
+  analogWrite(left_pwm1, 255);
 
   // Right wheel
-  digitalWrite(right_pwm1, HIGH);
-  analogWrite(right_pwm2, 255);
+  digitalWrite(right_pwm2, HIGH);
+  analogWrite(right_pwm1, 255);
 }
 
 void servo_dump() // Dump contents of bowl into braking vessel with servo
 {
-  servo.write(180); // Rotate to 180 deg position without delay
+  servo.write(180);   // Rotate to 180 deg position without delay
   delay(1000);      // Wait 1 s
-  servo.write(0);   // Return to default position
+  servo.write(0); // Return to default position
 }
 
 void PID_loop() // Update motor speeds according to PID algorithm
@@ -211,14 +211,14 @@ void setup() // Setup (executes once)
   startTime = millis();
 
   Serial.begin(9600); // start serial communication (adjust baud rate as needed)
-  Serial.println("Initalised at 9600 bps");
+  // Serial.println("Initalised at 9600 bps");
 
   // Initialize SD Card
-  Serial.println("SD card is initializing...");
+  // Serial.println("SD card is initializing...");
 
   if (!SD.begin(chip_select))
   {
-    Serial.println("SD card initialization failed.");
+    // Serial.println("SD card initialization failed.");
     while (1)
       ; // Halts and waits if failure
   }
@@ -243,16 +243,18 @@ void setup() // Setup (executes once)
 
   root.close();
 
-  Serial.println("Success! SD card initialized.");
-  Serial.println("Time,Temperature,Filtered Temperature,z-angle,Filtered z-angle"); // Data header
+  // Serial.println("Success! SD card initialized.");
+  // Serial.println("Time,Temperature,Filtered Temperature,z-angle,Filtered z-angle"); // Data header
 
   // Initialize the stir motor pins as outputs
   pinMode(stirPin1, OUTPUT);
   pinMode(stirPin2, OUTPUT);
 
-  // Set the stir initial speed to 80%
-  analogWrite(stirPin1, 204);  // 80% of 255
+  // Set the stir initial speed to 682 RPM
+  analogWrite(stirPin1, 255);  // 682 out of 1000 RPM
   digitalWrite(stirPin2, LOW); // For fast decay
+  delay(1000);
+  analogWrite(stirPin1, 120);  // 682 out of 1000 RPM
 
   sensors.begin();                       // Initialize the DS18B20 sensor
   sensors.requestTemperatures();         // Request temperature from all devices on the bus
@@ -275,16 +277,15 @@ void setup() // Setup (executes once)
   q_MPU = 0.01;      // Process noise covariance
   r_MPU = 0.1;       // Measurement noise covariance
 
+  // Initialize servo to default position
+  servo.attach(servo_pwm);
+  
+  // Dump reactants before starting drive
+  servo_dump();
+
   // Indicate status to be initialized
   pinMode(LED, OUTPUT);
   digitalWrite(LED, HIGH);
-
-  // Initialize servo to default position
-  servo.attach(servo_pwm);
-  servo.write(0);
-
-  // Dump reactants before starting drive
-  servo_dump();
 
   // Activate PID
   carPID.SetMode(AUTOMATIC);
@@ -343,27 +344,27 @@ void loop() // Loop (main loop)
   }
   else
   {
-    Serial.println("Error! Cannot open file for writing.");
+    // Serial.println("Error! Cannot open file for writing.");
   }
 
   // Print variable data to serial in CSV format
   printer(true, currTime, data);
 
-  drive_forward(51); // 80% speed in slow decay mode (1-0.8)*255
+  drive_forward(0); // 100% speed in slow decay mode (1-0.99)*255
 
-  // Update PID model
-  PID_loop();
+  // // Update PID model
+  // PID_loop();
 
-  // Stop driving once temperature threshold is reached or time limit is exceeded
-  if (((x_temp - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
-  {
-    // Indicate status to be finished
-    digitalWrite(LED, LOW);
+  // // Stop driving once temperature threshold is reached or time limit is exceeded
+  // if (((x_temp - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
+  // {
+  //   // Indicate status to be finished
+  //   digitalWrite(LED, LOW);
 
-    // Stop driving
-    stop_driving();
+  //   // Stop driving
+  //   stop_driving();
 
-    while (1)
-      ; // Do nothing for remainder of uptime
-  }
+  //   while (1)
+  //     ; // Do nothing for remainder of uptime
+  // }
 }
