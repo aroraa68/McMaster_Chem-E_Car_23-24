@@ -10,8 +10,11 @@
 #include <Servo.h>
 #include <SD.h>
 #include <SPI.h>
+#include <Adafruit_NeoPixel.h>
 
-#define LED 8 // Status LED
+#define GND_PIN 4 // Tie pin 4 to GND for compatibility
+
+#define NUM_PIXELS 1 // Status LED
 
 // Define drive motor pins
 #define left_pwm1 10
@@ -20,8 +23,8 @@
 #define right_pwm2 12
 
 // Define the PWM pins for the stir bar motor
-#define stirPin1 A3 // Alternate A3 temporarily used due to chip defect for M3 on 5
-#define stirPin2 A4 // Alternate A4 temporarily used due to chip defect for M3 on 6
+#define stirPin1 24
+#define stirPin2 A3
 
 // Define servo pin
 #define servo_pwm 13
@@ -37,6 +40,8 @@ MPU6050 mpu(Wire); // Create MPU6050 instance
 
 OneWire oneWire(ONE_WIRE_BUS);       // create a OneWire instance to communicate with the sensor
 DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Temperature sensor
+
+Adafruit_NeoPixel pixel(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800); // Status LED
 
 // Define files
 File root;
@@ -207,6 +212,17 @@ void printer(bool serialTrue, unsigned long millisTime, double outputs[4]) // Ou
 
 void setup() // Setup (executes once)
 {
+  // Tie pin 4 to GND for compatibility
+  pinMode(GND_PIN, OUTPUT);
+  digitalWrite(GND_PIN, LOW);
+
+  // Indicate status to be initialized
+  pixel.begin();
+  pixel.setBrightness(255);
+  pixel.show();
+  pixel.setPixelColor(0, 255, 0, 0);
+  pixel.show();
+
   // Get time at start
   startTime = millis();
 
@@ -283,10 +299,6 @@ void setup() // Setup (executes once)
   // Dump reactants before starting drive
   servo_dump();
 
-  // Indicate status to be initialized
-  pinMode(LED, OUTPUT);
-  digitalWrite(LED, HIGH);
-
   // Activate PID
   carPID.SetMode(AUTOMATIC);
 
@@ -298,6 +310,9 @@ void setup() // Setup (executes once)
   pinMode(left_pwm2, OUTPUT);
   pinMode(right_pwm1, OUTPUT);
   pinMode(right_pwm2, OUTPUT);
+
+  pixel.setPixelColor(0, 0, 0, 255); // Indicate setup complete status
+  pixel.show();
 
   // Start drive motors at full power to overcome stall
   drive_forward(0);
@@ -355,16 +370,17 @@ void loop() // Loop (main loop)
   // // Update PID model
   // PID_loop();
 
-  // // Stop driving once temperature threshold is reached or time limit is exceeded
-  // if (((x_temp - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
-  // {
-  //   // Indicate status to be finished
-  //   digitalWrite(LED, LOW);
+  // Stop driving once temperature threshold is reached or time limit is exceeded
+  if (((x_temp - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
+  {
+    // Stop driving
+    stop_driving();
 
-  //   // Stop driving
-  //   stop_driving();
+    // Indicate status to be finished
+    pixel.setPixelColor(0, 0, 0, 255);
+    pixel.show();
 
-  //   while (1)
-  //     ; // Do nothing for remainder of uptime
-  // }
+    while (1)
+      ; // Do nothing for remainder of uptime
+  }
 }

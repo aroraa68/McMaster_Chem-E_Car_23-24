@@ -1,8 +1,12 @@
-#define LED 8 // Status LED
+#include <Adafruit_NeoPixel.h>
 
 // Define the PWM pins for the linear actuator
 #define linAcc1 6
 #define linAcc2 5
+
+#define NUM_PIXELS 1 // Status LED
+
+Adafruit_NeoPixel pixel(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800); // Status LED
 
 void retract() // Retract actuator to reset hydrogen reaction 
 {
@@ -19,13 +23,17 @@ void setup() // Setup (executes once)
   pinMode(linAcc2, OUTPUT);
   
   // Indicate status to be initialized
-  pinMode(LED, OUTPUT);
-  digitalWrite(LED, HIGH);
-  
+  pixel.begin();
+  pixel.setBrightness(255);
+  pixel.show();
+  pixel.setPixelColor(0, 255, 0, 0);
+  pixel.show();
+   
   retract(); // Extend syringe to reset
   
   // Indicate status to be finished
-  digitalWrite(LED, LOW);
+  pixel.setPixelColor(0, 0, 0, 255);
+  pixel.show();
 }
 
 void loop() // Loop (main loop)
