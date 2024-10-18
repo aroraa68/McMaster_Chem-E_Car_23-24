@@ -119,9 +119,9 @@ void stop_driving() // Stop function
 
 void servo_dump() // Dump contents of bowl into braking vessel with servo
 {
-  servo.write(180); // Rotate to 180 deg position without delay
-  delay(1000);          // Wait 1 s
-  servo.write(0);       // Return to default position
+  servo.writeMicroseconds(2600); // Rotate to 180 deg position without delay
+  delay(1000);                   // Wait 1 s
+  servo.writeMicroseconds(500);  // Return to default position
 }
 
 void start_stir() // Start stirring mechanism
@@ -136,7 +136,7 @@ void inject() // Inject syringe to initiate hydrogen reaction
 {
   analogWrite(linAcc1, 0);     // 100% power
   digitalWrite(linAcc2, HIGH); // For slow decay
-  delay(16600);                // Wait to finish extending
+  delay(20000);                // Wait to finish extending
   analogWrite(linAcc1, 255);   // Stop extending
 }
 
@@ -246,7 +246,7 @@ void setup() // Setup (executes once)
   // r_MPU = 0.1;       // Measurement noise covariance
 
   // Initialize servo to default position
-  servo.attach(servo_pwm);
+  servo.attach(servo_pwm, 500, 2600);
   
   // Dump reactants before starting drive
   servo_dump();
@@ -291,23 +291,10 @@ void loop() // Loop (main loop)
   tempDiff = -0.087*currTime + 1.8; // Update temperature differential
   tempChange = x_temp - initTemp; // Calculate temperature change
 
-  drive_forward(127); // 100% speed in slow decay mode (1-0.99)*255
+  drive_forward(64); // 75% speed in slow decay mode
 
   // // Update PID model
   // PID_loop();
-
-  // // Stop driving once temperature threshold is reached or time limit is exceeded
-  // if (((x_temp - initTemp) > tempDiff) || ((currTime - startTime) > tLim))
-  // {
-  //   // Indicate status to be finished
-  //   digitalWrite(LED, LOW);
-
-  //   // Stop driving
-  //   stop_driving();
-
-  //   while (1)
-  //     ; // Do nothing for remainder of uptime
-  // }
 
   if (tempChange <= tempDiff && currTime > 21)
   {

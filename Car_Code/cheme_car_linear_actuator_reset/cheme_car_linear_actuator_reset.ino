@@ -12,7 +12,7 @@ void retract() // Retract actuator to reset hydrogen reaction
 {
   analogWrite(linAcc2, 0);     // 100% power
   digitalWrite(linAcc1, HIGH); // For slow decay
-  delay(16660);                // Wait to finish extending
+  delay(15000);                // Wait to finish extending
   analogWrite(linAcc2, 255);   // Stop extending
 }
 
