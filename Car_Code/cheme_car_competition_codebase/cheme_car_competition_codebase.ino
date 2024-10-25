@@ -1,5 +1,5 @@
 // TODO:
-// Tune Kalman filtering for both sensors & PID coefficients
+// Tune Kalman filtering for IMU & PID coefficients
 
 // Included libraries
 #include <OneWire.h>
@@ -9,16 +9,17 @@
 // #include <PID_v1_bc.h>
 #include <Servo.h>
 #include <Adafruit_NeoPixel.h>
+#include "SdFat.h"
 
 #define GND_PIN 4 // Tie pin 4 to GND for compatibility
 
 #define NUM_PIXELS 1 // Status LED
 
 // Define drive motor pins
-#define left_pwm1 10
-#define left_pwm2 9
-#define right_pwm1 12
-#define right_pwm2 11
+#define right_pwm1 10
+#define right_pwm2 9
+#define left_pwm1 12
+#define left_pwm2 11
 
 // Define the PWM pins for the stir bar motor
 #define stirPin1 24
@@ -33,6 +34,9 @@
 
 #define ONE_WIRE_BUS A1 // pin for the DS18B20 data line
 
+// Define chip select pin for SD card
+#define SD_CS_PIN 23
+
 Servo servo; // Create servo object
 
 // MPU6050 mpu(Wire); // Create MPU6050 instance
@@ -41,6 +45,16 @@ OneWire oneWire(ONE_WIRE_BUS);       // Create a OneWire instance to communicate
 DallasTemperature sensors(&oneWire); // Pass oneWire reference to Dallas Temperature sensor
 
 Adafruit_NeoPixel pixel(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800); // Status LED
+
+// Define files
+SdFat SD;
+File32 root;
+File32 nextFile;
+File32 dataFile;
+SdSpiConfig config(SD_CS_PIN, DEDICATED_SPI, SD_SCK_MHZ(16), &SPI1);
+String fileName;
+
+bool isFileNew = true; // Checks for new file
 
 // Time limit in milliseconds
 // const unsigned long tLim = 120000;
@@ -54,12 +68,17 @@ Adafruit_NeoPixel pixel(NUM_PIXELS, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800); // Stat
 // Temperature threshold
 float tempDiff;
 
+// Initialize run count for SD card file
+int runCount;
+
 // Temperature change
 float tempChange;
 
 // variables to store temperature
 double temperatureC; // Current temperature
 double initTemp;     // Initial temperature for differential calculation
+
+double data[2]; // Data array
 
 // KALMAN FILTER variables
 double x_temp; // Filtered temperature
@@ -74,7 +93,7 @@ double r_temp; // Measurement noise covariance
 // double r_MPU;  // Measurement noise covariance
 
 // Keeping track of time
-float currTime;
+float currTime = 0;
 unsigned long startTime;
 bool firstRun = true;
 
@@ -95,26 +114,26 @@ bool firstRun = true;
 
 void drive_forward(int speed) // Drive function
 {
-  // Left wheel
-  digitalWrite(left_pwm2, HIGH);
-  analogWrite(left_pwm1, speed);
-  // analogWrite(left_pwm1, speed - left_offset);
-
   // Right wheel
   digitalWrite(right_pwm2, HIGH);
   analogWrite(right_pwm1, speed);
   // analogWrite(right_pwm1, speed - right_offset);
+
+  // Left wheel
+  digitalWrite(left_pwm2, HIGH);
+  analogWrite(left_pwm1, speed + 9); // speed + 9 offset, to go straighter.
+  // analogWrite(left_pwm1, speed - left_offset);
 }
 
 void stop_driving() // Stop function
 {
-  // Left wheel
-  digitalWrite(left_pwm2, HIGH);
-  analogWrite(left_pwm1, 255);
-
   // Right wheel
   digitalWrite(right_pwm2, HIGH);
   analogWrite(right_pwm1, 255);
+
+  // Left wheel
+  digitalWrite(left_pwm2, HIGH);
+  analogWrite(left_pwm1, 255);
 }
 
 void servo_dump() // Dump contents of bowl into braking vessel with servo
@@ -129,14 +148,14 @@ void start_stir() // Start stirring mechanism
   analogWrite(stirPin1, 255);  // 100% to overcome stall
   digitalWrite(stirPin2, LOW); // For fast decay
   delay(1000);                 // Wait 1 s to spin up
-  analogWrite(stirPin1, 120);  // 47% speed as per testing
+  analogWrite(stirPin1, 146);  // 57% speed as per testing
 }
 
 void inject() // Inject syringe to initiate hydrogen reaction 
 {
   analogWrite(linAcc1, 0);     // 100% power
   digitalWrite(linAcc2, HIGH); // For slow decay
-  delay(20000);                // Wait to finish extending
+  delay(25000);                // Wait to finish extending
   analogWrite(linAcc1, 255);   // Stop extending
 }
 
@@ -190,6 +209,34 @@ void kalman_filter(double x_k, double p_k, double q, double r, double input, boo
   }
 }
 
+void printer(bool serialTrue, unsigned long millisTime, double outputs[2]) // Output function
+{
+  if (serialTrue) // Print data to serial or SD card file accordingly in .csv format
+  {
+    Serial.print(millisTime);
+
+    for (int i = 0; i < 2; i++)
+    {
+      Serial.print(",");
+      Serial.print(outputs[i]);
+    }
+
+    Serial.println("");
+  }
+  else
+  {
+    dataFile.print(millisTime);
+
+    for (int i = 0; i < 2; i++)
+    {
+      dataFile.print(",");
+      dataFile.print(outputs[i]);
+    }
+
+    dataFile.println("");
+  }
+}
+
 void setup() // Setup (executes once)
 {
   // Tie pin 4 to GND for compatibility
@@ -203,11 +250,38 @@ void setup() // Setup (executes once)
   pixel.setPixelColor(0, 255, 0, 0);
   pixel.show();
 
+  // Get time at start
+  startTime = millis();
+
+  while (!SD.begin(config)) {
+    delay(1000); // Wait for a second before retrying
+  }
+
+  root = SD.open("/", FILE_READ); // Open SD root directory
+  runCount = 0;
+
+  while (true)
+  {
+    nextFile = root.openNextFile();
+
+    if (nextFile)
+    {
+      runCount++; // Increment with each existing file
+    }
+    else
+    {
+      nextFile.close();
+      break;
+    }
+  }
+
+  root.close();
+
   // Setting to drive motors output mode
-  pinMode(left_pwm1, OUTPUT);
-  pinMode(left_pwm2, OUTPUT);
   pinMode(right_pwm1, OUTPUT);
   pinMode(right_pwm2, OUTPUT);
+  pinMode(left_pwm1, OUTPUT);
+  pinMode(left_pwm2, OUTPUT);
 
   stop_driving(); // Stop driving motors from residual bootloader code
 
@@ -288,24 +362,47 @@ void loop() // Loop (main loop)
     currTime = (millis() - startTime)/1000; // Taken to check time against first measurement
   }
 
-  tempDiff = -0.087*currTime + 1.8; // Update temperature differential
+  // Open csv file
+  fileName = "Run_" + String(runCount) + ".csv";
+  dataFile = SD.open(fileName, FILE_WRITE);
+
+  if (dataFile)
+  {
+    // Writes header if it's a new file
+    if (isFileNew)
+    {
+      dataFile.println("Time,Temperature,Filtered Temperature");
+      isFileNew = false;
+    }
+
+    // Update data array
+    data[0] = temperatureC;
+    data[1] = x_temp;
+
+    // Write variable data to the file in CSV format
+    printer(false, currTime, data);
+
+    dataFile.close();
+  }
+
+  tempDiff = -0.068*currTime + 1.4; // Update temperature differential
   tempChange = x_temp - initTemp; // Calculate temperature change
 
-  drive_forward(64); // 75% speed in slow decay mode
+  drive_forward(128); // 50% speed in slow decay mode
 
   // // Update PID model
   // PID_loop();
 
-  if (tempChange <= tempDiff && currTime > 21)
-  {
-    // Stop driving
-    stop_driving();
+  // if (tempChange >= tempDiff)
+  // {
+  //   // Stop driving
+  //   stop_driving();
 
-    // Indicate status to be finished
-    pixel.setPixelColor(0, 0, 0, 255);
-    pixel.show();
+  //   // Indicate status to be finished
+  //   pixel.setPixelColor(0, 0, 0, 255);
+  //   pixel.show();
 
-    while (1)
-      ; // Do nothing for remainder of uptime
-  }
+  //   while (1)
+  //     ; // Do nothing for remainder of uptime
+  // }
 }
